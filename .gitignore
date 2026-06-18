@@ -1,0 +1,31 @@
+# Binary
+starter-api
+*.exe
+*.out
+
+# Environment
+.env
+.env.local
+.env.production
+
+# Storage (uploaded files)
+storage/photos/*
+!storage/photos/.gitkeep
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Air (hot reload)
+tmp/
