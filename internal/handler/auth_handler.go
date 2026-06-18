@@ -80,10 +80,8 @@ func (h *AuthHandler) Login(c *gin.Context) {
 
 func (h *AuthHandler) Logout(c *gin.Context) {
 	var req usecase.RefreshTokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "invalid request body", nil)
-		return
-	}
+	// Body is optional — revoke all tokens for the user if no specific token given
+	_ = c.ShouldBindJSON(&req)
 
 	userID := middleware.GetUserID(c)
 	if err := h.authUsecase.Logout(userID, req.RefreshToken); err != nil {

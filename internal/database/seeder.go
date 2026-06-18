@@ -142,6 +142,22 @@ func seedPermissions(db *gorm.DB) error {
 		}
 	}
 
+	permRoute := "/admin/permissions"
+	permIcon := "lock"
+	permMenu := entity.Permission{
+		ID:       uuid.New(),
+		ParentID: &adminMenu.ID,
+		Name:     "permission:index",
+		Label:    "Permission",
+		Type:     entity.PermissionTypeMenu,
+		Route:    &permRoute,
+		Icon:     &permIcon,
+		Order:    3,
+	}
+	if err := db.Create(&permMenu).Error; err != nil {
+		return err
+	}
+
 	return nil
 }
 

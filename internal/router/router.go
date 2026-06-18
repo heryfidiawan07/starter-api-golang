@@ -19,6 +19,7 @@ type Router struct {
 	user       *handler.UserHandler
 	role       *handler.RoleHandler
 	permission *handler.PermissionHandler
+	lookup     *handler.LookupHandler
 }
 
 func New(
@@ -28,6 +29,7 @@ func New(
 	user *handler.UserHandler,
 	role *handler.RoleHandler,
 	permission *handler.PermissionHandler,
+	lookup *handler.LookupHandler,
 ) *Router {
 	if cfg.App.Env == "production" {
 		gin.SetMode(gin.ReleaseMode)
@@ -35,6 +37,7 @@ func New(
 
 	engine := gin.New()
 	engine.Use(gin.Logger(), gin.Recovery())
+	engine.Use(corsMiddleware())
 
 	engine.Static("/storage/photos", cfg.Storage.Path)
 
@@ -46,6 +49,24 @@ func New(
 		user:       user,
 		role:       role,
 		permission: permission,
+		lookup:     lookup,
+	}
+}
+
+// corsMiddleware handles CORS headers and OPTIONS preflight requests.
+func corsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Origin, Content-Type, Accept, Authorization")
+		c.Header("Access-Control-Expose-Headers", "Content-Length")
+		c.Header("Access-Control-Max-Age", "86400")
+
+		if c.Request.Method == http.MethodOptions {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+		c.Next()
 	}
 }
 
@@ -61,12 +82,13 @@ func (r *Router) Setup() *gin.Engine {
 	{
 		authGroup.POST("/register", r.auth.Register)
 		authGroup.POST("/login", r.auth.Login)
-		authGroup.POST("/refresh-token", r.auth.RefreshToken)
+		authGroup.POST("/refresh", r.auth.RefreshToken)
+		authGroup.POST("/revoke", r.auth.RevokeToken)
 		authGroup.POST("/forgot-password", r.auth.ForgotPassword)
 		authGroup.POST("/reset-password", r.auth.ResetPassword)
 		authGroup.GET("/verify-email", r.auth.VerifyEmail)
-		authGroup.POST("/google", r.auth.GoogleAuth)
-		authGroup.POST("/facebook", r.auth.FacebookAuth)
+		authGroup.POST("/oauth/google", r.auth.GoogleAuth)
+		authGroup.POST("/oauth/facebook", r.auth.FacebookAuth)
 	}
 
 	// Protected auth routes
@@ -75,11 +97,10 @@ func (r *Router) Setup() *gin.Engine {
 	{
 		authProtected.GET("/me", r.auth.Me)
 		authProtected.POST("/logout", r.auth.Logout)
-		authProtected.POST("/revoke-token", r.auth.RevokeToken)
-		authProtected.PUT("/change-password", r.auth.ChangePassword)
+		authProtected.POST("/change-password", r.auth.ChangePassword)
 	}
 
-	// Profile routes (authenticated user)
+	// Profile routes
 	profile := api.Group("/profile")
 	profile.Use(middleware.Auth(r.cfg))
 	{
@@ -93,9 +114,10 @@ func (r *Router) Setup() *gin.Engine {
 	{
 		users.GET("", middleware.RequirePermission("user:index", r.userRepo), r.user.Index)
 		users.POST("", middleware.RequirePermission("user:create", r.userRepo), r.user.Store)
-		users.GET("/:id", middleware.RequirePermission("user:index", r.userRepo), r.user.Show)
+		users.GET("/:id", middleware.RequirePermission("user:show", r.userRepo), r.user.Show)
 		users.PUT("/:id", middleware.RequirePermission("user:edit", r.userRepo), r.user.Update)
 		users.DELETE("/:id", middleware.RequirePermission("user:delete", r.userRepo), r.user.Destroy)
+		users.POST("/:id/photo", middleware.RequirePermission("user:edit", r.userRepo), r.user.UpdateUserPhoto)
 	}
 
 	// Role management routes
@@ -104,18 +126,27 @@ func (r *Router) Setup() *gin.Engine {
 	{
 		roles.GET("", middleware.RequirePermission("role:index", r.userRepo), r.role.Index)
 		roles.POST("", middleware.RequirePermission("role:create", r.userRepo), r.role.Store)
-		roles.GET("/:id", middleware.RequirePermission("role:index", r.userRepo), r.role.Show)
+		roles.GET("/:id", middleware.RequirePermission("role:show", r.userRepo), r.role.Show)
 		roles.PUT("/:id", middleware.RequirePermission("role:edit", r.userRepo), r.role.Update)
 		roles.DELETE("/:id", middleware.RequirePermission("role:delete", r.userRepo), r.role.Destroy)
 	}
 
-	// Permission routes (read-only, any authenticated user)
+	// Permission routes
 	permissions := api.Group("/permissions")
 	permissions.Use(middleware.Auth(r.cfg))
 	{
-		permissions.GET("", r.permission.Index)
-		permissions.GET("/tree", r.permission.Tree)
-		permissions.GET("/role/:role_id", r.permission.ByRole)
+		permissions.GET("", middleware.RequirePermission("permission:index", r.userRepo), r.permission.Index)
+		permissions.GET("/tree", middleware.RequirePermission("permission:index", r.userRepo), r.permission.Tree)
+		permissions.GET("/by-role/:role_id", middleware.RequirePermission("permission:index", r.userRepo), r.permission.ByRole)
+	}
+
+	// Lookup routes — auth only, no specific permission required.
+	// Used by form dropdowns (e.g. role select in Add User, permission tree in Add Role).
+	lookupGroup := api.Group("/lookup")
+	lookupGroup.Use(middleware.Auth(r.cfg))
+	{
+		lookupGroup.GET("/roles", r.lookup.Roles)
+		lookupGroup.GET("/permissions", r.lookup.Permissions)
 	}
 
 	return r.engine

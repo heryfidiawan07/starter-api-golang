@@ -53,13 +53,14 @@ func main() {
 	permissionSvc := service.NewPermissionService(permissionRepo)
 
 	// Handlers
-	authHandler := handler.NewAuthHandler(authSvc)
-	userHandler := handler.NewUserHandler(userSvc)
-	roleHandler := handler.NewRoleHandler(roleSvc)
+	authHandler       := handler.NewAuthHandler(authSvc)
+	userHandler       := handler.NewUserHandler(userSvc)
+	roleHandler       := handler.NewRoleHandler(roleSvc)
 	permissionHandler := handler.NewPermissionHandler(permissionSvc)
+	lookupHandler     := handler.NewLookupHandler(roleRepo, permissionRepo)
 
 	// Router
-	r := router.New(cfg, userRepo, authHandler, userHandler, roleHandler, permissionHandler)
+	r := router.New(cfg, userRepo, authHandler, userHandler, roleHandler, permissionHandler, lookupHandler)
 	engine := r.Setup()
 
 	addr := ":" + cfg.App.Port

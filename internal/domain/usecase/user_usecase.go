@@ -14,13 +14,13 @@ type CreateUserRequest struct {
 	Email    string     `json:"email" validate:"required,email"`
 	Password string     `json:"password" validate:"required,min=8"`
 	RoleID   *uuid.UUID `json:"role_id"`
-	Status   *bool      `json:"status"`
+	IsActive *bool      `json:"is_active"`
 }
 
 type UpdateUserRequest struct {
-	Name   string     `json:"name" validate:"omitempty,min=2,max=100"`
-	RoleID *uuid.UUID `json:"role_id"`
-	Status *bool      `json:"status"`
+	Name     string     `json:"name" validate:"omitempty,min=2,max=100"`
+	RoleID   *uuid.UUID `json:"role_id"`
+	IsActive *bool      `json:"is_active"`
 }
 
 type UpdateProfileRequest struct {

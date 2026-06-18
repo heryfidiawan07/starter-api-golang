@@ -18,7 +18,7 @@ type User struct {
 	IsRoot     bool           `gorm:"default:false" json:"is_root"`
 	RoleID     *uuid.UUID     `gorm:"type:char(36);default:null" json:"role_id"`
 	Role       *Role          `gorm:"foreignKey:RoleID" json:"role,omitempty"`
-	Status     bool           `gorm:"default:true" json:"status"`
+	Status     bool           `gorm:"column:status;default:true" json:"is_active"`
 	CreatedAt  time.Time      `json:"created_at"`
 	UpdatedAt  time.Time      `json:"updated_at"`
 	DeletedAt  gorm.DeletedAt `gorm:"index" json:"deleted_at,omitempty"`

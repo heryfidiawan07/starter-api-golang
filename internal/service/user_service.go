@@ -56,8 +56,8 @@ func (s *userService) Create(req usecase.CreateUserRequest) (*entity.User, error
 	}
 
 	status := true
-	if req.Status != nil {
-		status = *req.Status
+	if req.IsActive != nil {
+		status = *req.IsActive
 	}
 
 	user := &entity.User{
@@ -91,8 +91,8 @@ func (s *userService) Update(id uuid.UUID, req usecase.UpdateUserRequest) (*enti
 	if req.RoleID != nil {
 		user.RoleID = req.RoleID
 	}
-	if req.Status != nil {
-		user.Status = *req.Status
+	if req.IsActive != nil {
+		user.Status = *req.IsActive
 	}
 
 	if err := s.userRepo.Update(user); err != nil {

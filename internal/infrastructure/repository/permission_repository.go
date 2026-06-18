@@ -46,20 +46,29 @@ func (r *permissionRepository) FindTree() ([]entity.Permission, error) {
 		return nil, err
 	}
 
-	indexMap := make(map[uuid.UUID]*entity.Permission)
-	for i := range all {
-		indexMap[all[i].ID] = &all[i]
+	// Group direct children by parent ID
+	childrenOf := make(map[uuid.UUID][]entity.Permission)
+	for _, p := range all {
+		if p.ParentID != nil {
+			childrenOf[*p.ParentID] = append(childrenOf[*p.ParentID], p)
+		}
+	}
+
+	// Recursively attach children before returning each node
+	var attachChildren func(p entity.Permission) entity.Permission
+	attachChildren = func(p entity.Permission) entity.Permission {
+		if kids, ok := childrenOf[p.ID]; ok {
+			for _, kid := range kids {
+				p.Children = append(p.Children, attachChildren(kid))
+			}
+		}
+		return p
 	}
 
 	var roots []entity.Permission
-	for i := range all {
-		p := &all[i]
+	for _, p := range all {
 		if p.ParentID == nil {
-			roots = append(roots, *p)
-		} else {
-			if parent, ok := indexMap[*p.ParentID]; ok {
-				parent.Children = append(parent.Children, *p)
-			}
+			roots = append(roots, attachChildren(p))
 		}
 	}
 	return roots, nil

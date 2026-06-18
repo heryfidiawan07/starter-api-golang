@@ -189,3 +189,25 @@ func (h *UserHandler) UpdatePhoto(c *gin.Context) {
 
 	response.OK(c, "photo updated", user)
 }
+
+func (h *UserHandler) UpdateUserPhoto(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		response.BadRequest(c, "invalid user ID", nil)
+		return
+	}
+
+	file, err := c.FormFile("photo")
+	if err != nil {
+		response.BadRequest(c, "photo file is required", nil)
+		return
+	}
+
+	user, err := h.userUsecase.UpdatePhoto(id, file)
+	if err != nil {
+		response.BadRequest(c, err.Error(), nil)
+		return
+	}
+
+	response.OK(c, "photo updated", user)
+}
