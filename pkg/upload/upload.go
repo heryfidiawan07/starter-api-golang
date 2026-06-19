@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"os"
+	"path"
 	"path/filepath"
 	"strings"
 	"time"
@@ -65,12 +66,13 @@ func SavePhoto(file *multipart.FileHeader, storagePath string) (string, error) {
 	return filename, nil
 }
 
-func DeletePhoto(storagePath, filename string) error {
-	if filename == "" {
+func DeletePhoto(storagePath, photoValue string) error {
+	if photoValue == "" {
 		return nil
 	}
-	path := filepath.Join(storagePath, filepath.Base(filename))
-	if err := os.Remove(path); err != nil && !os.IsNotExist(err) {
+	base := path.Base(photoValue) // handles both plain filename and full URL
+	dst := filepath.Join(storagePath, base)
+	if err := os.Remove(dst); err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	return nil

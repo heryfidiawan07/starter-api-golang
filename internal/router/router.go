@@ -77,6 +77,16 @@ func (r *Router) Setup() *gin.Engine {
 
 	api := r.engine.Group("/api/v1")
 
+	// Public config — returns OAuth Client IDs for the frontend SDK
+	api.GET("/config", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"data": gin.H{
+				"google_client_id": r.cfg.Google.ClientID,
+				"facebook_app_id":  r.cfg.Facebook.ClientID,
+			},
+		})
+	})
+
 	// Public auth routes
 	authGroup := api.Group("/auth")
 	{

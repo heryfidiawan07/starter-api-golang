@@ -19,8 +19,6 @@ import (
 	"starter-api-golang/pkg/jwt"
 
 	"github.com/google/uuid"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/google"
 	"gorm.io/gorm"
 )
 
@@ -96,6 +94,7 @@ func (s *authService) Register(req usecase.RegisterRequest) (*entity.User, error
 		_ = s.userRepo.Update(user)
 	}
 
+	applyPhotoURL(s.cfg.Storage.URL, user)
 	return user, nil
 }
 
@@ -232,19 +231,8 @@ func (s *authService) VerifyEmail(token string) error {
 }
 
 func (s *authService) GoogleAuth(req usecase.SocialAuthRequest) (*usecase.AuthResponse, error) {
-	oauthCfg := &oauth2.Config{
-		ClientID:     s.cfg.Google.ClientID,
-		ClientSecret: s.cfg.Google.ClientSecret,
-		Endpoint:     google.Endpoint,
-		Scopes:       []string{"openid", "email", "profile"},
-	}
-
-	token, err := oauthCfg.Exchange(oauth2.NoContext, req.AccessToken)
-	if err != nil {
-		return nil, fmt.Errorf("failed to exchange google token: %w", err)
-	}
-
-	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + token.AccessToken)
+	// The frontend sends an access_token from Google Identity Services SDK — use it directly.
+	resp, err := http.Get("https://www.googleapis.com/oauth2/v2/userinfo?access_token=" + req.AccessToken)
 	if err != nil {
 		return nil, err
 	}
@@ -292,6 +280,7 @@ func (s *authService) GetMe(userID uuid.UUID) (*entity.User, error) {
 	if err != nil {
 		return nil, ErrUserNotFound
 	}
+	applyPhotoURL(s.cfg.Storage.URL, user)
 	return user, nil
 }
 
@@ -314,6 +303,7 @@ func (s *authService) ChangePassword(userID uuid.UUID, req usecase.ChangePasswor
 }
 
 func (s *authService) generateTokenPair(user *entity.User) (*usecase.AuthResponse, error) {
+	applyPhotoURL(s.cfg.Storage.URL, user)
 	accessToken, err := jwt.GenerateAccessToken(user.ID, user.IsRoot, s.cfg.JWT.Secret, s.cfg.JWT.AccessExpire)
 	if err != nil {
 		return nil, err

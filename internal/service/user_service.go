@@ -3,6 +3,7 @@ package service
 import (
 	"errors"
 	"mime/multipart"
+	"strings"
 
 	"starter-api-golang/internal/config"
 	"starter-api-golang/internal/domain/entity"
@@ -21,6 +22,19 @@ var (
 	ErrUserNotFoundSvc   = errors.New("user not found")
 )
 
+// applyPhotoURL replaces the stored filename with a full URL, in-memory only.
+// It is idempotent: already-absolute URLs (starting with "http") are left unchanged.
+func applyPhotoURL(storageURL string, user *entity.User) {
+	if user == nil || user.Photo == nil || *user.Photo == "" {
+		return
+	}
+	if strings.HasPrefix(*user.Photo, "http") {
+		return
+	}
+	url := upload.BuildPhotoURL(storageURL, *user.Photo)
+	user.Photo = &url
+}
+
 type userService struct {
 	userRepo domainRepo.UserRepository
 	cfg      *config.Config
@@ -31,7 +45,14 @@ func NewUserService(userRepo domainRepo.UserRepository, cfg *config.Config) usec
 }
 
 func (s *userService) FindAll(filter domainRepo.UserFilter) ([]entity.User, int64, error) {
-	return s.userRepo.FindAll(filter)
+	users, total, err := s.userRepo.FindAll(filter)
+	if err != nil {
+		return nil, 0, err
+	}
+	for i := range users {
+		applyPhotoURL(s.cfg.Storage.URL, &users[i])
+	}
+	return users, total, nil
 }
 
 func (s *userService) FindByID(id uuid.UUID) (*entity.User, error) {
@@ -39,7 +60,11 @@ func (s *userService) FindByID(id uuid.UUID) (*entity.User, error) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, ErrUserNotFoundSvc
 	}
-	return user, err
+	if err != nil {
+		return nil, err
+	}
+	applyPhotoURL(s.cfg.Storage.URL, user)
+	return user, nil
 }
 
 func (s *userService) Create(req usecase.CreateUserRequest) (*entity.User, error) {
@@ -73,7 +98,12 @@ func (s *userService) Create(req usecase.CreateUserRequest) (*entity.User, error
 		return nil, err
 	}
 
-	return s.userRepo.FindByID(user.ID)
+	user, err = s.userRepo.FindByID(user.ID)
+	if err != nil {
+		return nil, err
+	}
+	applyPhotoURL(s.cfg.Storage.URL, user)
+	return user, nil
 }
 
 func (s *userService) Update(id uuid.UUID, req usecase.UpdateUserRequest) (*entity.User, error) {
@@ -99,7 +129,12 @@ func (s *userService) Update(id uuid.UUID, req usecase.UpdateUserRequest) (*enti
 		return nil, err
 	}
 
-	return s.userRepo.FindByID(user.ID)
+	user, err = s.userRepo.FindByID(user.ID)
+	if err != nil {
+		return nil, err
+	}
+	applyPhotoURL(s.cfg.Storage.URL, user)
+	return user, nil
 }
 
 func (s *userService) Delete(id uuid.UUID) error {
@@ -128,6 +163,7 @@ func (s *userService) UpdateProfile(userID uuid.UUID, req usecase.UpdateProfileR
 	if err := s.userRepo.Update(user); err != nil {
 		return nil, err
 	}
+	applyPhotoURL(s.cfg.Storage.URL, user)
 	return user, nil
 }
 
@@ -151,7 +187,6 @@ func (s *userService) UpdatePhoto(userID uuid.UUID, file *multipart.FileHeader) 
 		return nil, err
 	}
 
-	photoURL := upload.BuildPhotoURL(s.cfg.Storage.URL, filename)
-	user.Photo = &photoURL
+	applyPhotoURL(s.cfg.Storage.URL, user)
 	return user, nil
 }
